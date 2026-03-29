@@ -1,10 +1,21 @@
 import numpy as np
+import re
+from typing import Iterable, List, Sequence
+
 from langchain_ollama import OllamaLLM
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from sentence_transformers import CrossEncoder
 from rank_bm25 import BM25Okapi
+
+# LLM (instancié une seule fois)
+llm = OllamaLLM(model="qwen2.5:3b", temperature=0.1, num_predict=180)
+
+
+def tokenize(text: str) -> List[str]:
+    return re.findall(r"\w+", text.lower(), flags=re.UNICODE)
+
 
 # 1. Préparation docs (tokenisés pour BM25)
 docs = [
@@ -13,7 +24,7 @@ docs = [
     "RAG optimise avec reranking.",
     "Python pour IA locale Ollama.",
 ]
-tokenized_docs = [doc.split() for doc in docs]
+tokenized_docs = [tokenize(doc) for doc in docs]
 bm25 = BM25Okapi(tokenized_docs)  # Sparse lexical
 
 # Docs pour vector store
@@ -25,18 +36,17 @@ vectorstore = Chroma.from_documents(doc_objects, embeddings)
 reranker = CrossEncoder('BAAI/bge-reranker-base')
 
 # 3. Fusion RRF (Reciprocal Rank Fusion)
-def rrf_fusion(bm25_results, vector_results, k=60):
-    scores = {}
-    for doc_idx in bm25_results + vector_results:
-        scores[doc_idx] = 1 / (k + bm25_results.index(doc_idx)) if doc_idx in bm25_results else 0
-        scores[doc_idx] += 1 / (k + vector_results.index(doc_idx)) if doc_idx in vector_results else 0
-    fused = sorted(scores, key=scores.get, reverse=True)[:5]
-    return [doc_objects[i] for i in fused]
+def rrf_fusion(*ranked_lists: Sequence[int], k: int = 60, limit: int = 10) -> List[int]:
+    scores: dict[int, float] = {}
+    for lst in ranked_lists:
+        for rank, doc_idx in enumerate(lst):
+            scores[doc_idx] = scores.get(doc_idx, 0.0) + 1.0 / (k + rank + 1)
+    return [doc_idx for doc_idx, _ in sorted(scores.items(), key=lambda x: x[1], reverse=True)[:limit]]
 
 # 4. Recherche hybride
 def hybrid_search(query, top_k_bm25=5, top_k_dense=5):
     # BM25 sparse
-    tokenized_query = query.split()
+    tokenized_query = tokenize(query)
     bm25_scores = bm25.get_scores(tokenized_query)
     bm25_top = np.argsort(bm25_scores)[::-1][:top_k_bm25].tolist()
     
@@ -45,8 +55,8 @@ def hybrid_search(query, top_k_bm25=5, top_k_dense=5):
     vector_top = [d.metadata["idx"] for d in dense_docs]
     
     # Fusion RRF
-    fused_docs = rrf_fusion(bm25_top, vector_top)
-    return fused_docs
+    fused_top = rrf_fusion(bm25_top, vector_top, limit=max(top_k_bm25, top_k_dense))
+    return [doc_objects[i] for i in fused_top]
 
 # 5. Reranking + Génération
 def rag_pipeline(query):
@@ -54,22 +64,32 @@ def rag_pipeline(query):
     pairs = [[query, doc.page_content] for doc in retrieved]
     scores = reranker.predict(pairs)
     reranked = sorted(zip(scores, retrieved), key=lambda x: x[0], reverse=True)[:3]
-    context = "\n".join([doc[1].page_content for doc in reranked])
+    context_blocks = []
+    used_docs = []
+    for score, doc in reranked:
+        idx = doc.metadata.get("idx", "?")
+        used_docs.append(doc.page_content)
+        context_blocks.append(f"[DOC {idx}] {doc.page_content}")
+    context = "\n".join(context_blocks)
+
     prompt = f"""Tu es un assistant RAG strict.
 Règles:
 1) Réponds uniquement avec les informations présentes dans le CONTEXTE.
-2) Si le CONTEXTE ne contient pas la réponse, réponds exactement: "Je ne sais pas."
-3) N'invente rien.
+2) Si l'information manque, réponds exactement: "Je ne sais pas."
+3) N'invente rien, même si tu "penses savoir".
+4) Si tu réponds, cite au moins une source sous la forme [DOC n].
+5) Réponse en français, courte.
 
 QUESTION:
 {query}
 
 CONTEXTE:
 {context}
+
+RÉPONSE:
 """
-    llm = OllamaLLM(model="qwen2.5:3b", temperature=0.1, num_predict=120)
     response = llm.invoke(prompt)
-    return [doc[1].page_content for doc in reranked], response
+    return used_docs, response
 
 # Test
 query = "Meilleurs embeddings pour RAG multilingue ?"

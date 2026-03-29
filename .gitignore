@@ -8,3 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
+chroma_db/
+
+# Env (secrets)
+.env
+
+# Local config
+rag.config.json

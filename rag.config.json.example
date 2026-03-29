@@ -1,0 +1,18 @@
+{
+  "top_k_bm25": 20,
+  "top_k_dense": 20,
+  "fused_k": 30,
+  "rerank_k": 8,
+  "answer_k": 4,
+  "rerank_threshold": 0.0,
+  "temperature": 0.1,
+  "num_predict": 220,
+  "enable_multi_query": true,
+  "max_queries": 3,
+  "enable_llm_self_query": false,
+  "enable_context_compression": true,
+  "compression_max_chars": 900,
+  "rerank_cache_size": 10000,
+  "answer_cache_size": 1000
+}
+
