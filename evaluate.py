@@ -2,8 +2,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-from advanced_rag import AdvancedRAG
+from rag_engine import AdvancedRAG
 
 
 @dataclass(frozen=True)
@@ -46,10 +45,7 @@ def _has_doc_citation(answer: str) -> bool:
 
 
 def _faithfulness_simple(answer: str, context_texts: List[str]) -> float:
-    """
-    Very lightweight check: measures how much of the answer's content words
-    appear in the provided context. Not a perfect metric, but useful as a guardrail.
-    """
+
     a = (answer or "").lower()
     ctx = "\n".join(context_texts).lower()
     words = [w for w in a.replace("\n", " ").split() if w.isalpha() and len(w) >= 5]

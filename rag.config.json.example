@@ -5,6 +5,14 @@
   "rerank_k": 8,
   "answer_k": 4,
   "rerank_threshold": 0.0,
+  "enable_rust_bm25": true,
+  "bm25_k1": 1.5,
+  "bm25_b": 0.75,
+  "system_prompt_template": "Tu es un assistant RAG strict.\\nRègles:\\n1) Utilise uniquement le CONTEXTE.\\n2) Si l'information n'y est pas, réponds exactement: \\\"Je ne sais pas.\\\"\\n3) Si tu réponds, ajoute une ligne \\\"Sources:\\\" et cite au moins un identifiant [DOC ...].\\n4) Réponse courte, factuelle, en français.\\n\\nQUESTION:\\n{query}\\n\\nCONTEXTE:\\n{context}\\n\\nRÉPONSE:\\n",
+  "enable_idk_retry": true,
+  "idk_retry_prompt_template": "Tu es un assistant RAG strict.\\nRègles:\\n1) Utilise uniquement le CONTEXTE.\\n2) Si le CONTEXTE contient des éléments partiels, réponds avec ce que tu peux et précise la limite.\\n3) Si aucune information pertinente n'est présente, réponds exactement: \\\"Je ne sais pas.\\\"\\n4) Ajoute une ligne \\\"Sources:\\\" et cite au moins un identifiant [DOC ...] si tu réponds.\\n5) Réponse courte, factuelle, en français.\\n\\nQUESTION:\\n{query}\\n\\nCONTEXTE:\\n{context}\\n\\nRÉPONSE:\\n",
+  "enable_idk_fallback": true,
+  "idk_fallback_max_sources": 3,
   "temperature": 0.1,
   "num_predict": 220,
   "enable_multi_query": true,
@@ -13,6 +21,8 @@
   "enable_context_compression": true,
   "compression_max_chars": 900,
   "rerank_cache_size": 10000,
-  "answer_cache_size": 1000
+  "answer_cache_size": 1000,
+  "ingest_chunk_size": 900,
+  "ingest_chunk_overlap": 150
 }
 

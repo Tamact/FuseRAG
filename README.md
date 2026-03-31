@@ -45,3 +45,10 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 Puis ajoute le header `X-API-Key` sur chaque requête.
+
+## Ingestion
+
+- Dossier (serveur):
+  - `POST /ingest`
+- Upload direct:
+  - `POST /ingest/file` (multipart/form-data: `file`, `chunk_size`, `chunk_overlap`)

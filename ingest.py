@@ -1,8 +1,7 @@
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
-
+from typing import List, Optional, Tuple
 from langchain_core.documents import Document
 
 
@@ -139,5 +138,54 @@ def build_documents_from_dir(data_dir: Path, cfg: ChunkingConfig) -> Tuple[List[
                 )
             )
             ids.append(doc_id)
+    return docs, ids
+
+
+def build_documents_from_file(
+    file_path: Path, cfg: ChunkingConfig, *, source_name: Optional[str] = None
+) -> Tuple[List[Document], List[str]]:
+    
+    if not file_path.exists() or not file_path.is_file():
+        raise FileNotFoundError(str(file_path))
+
+    base_dir = file_path.parent
+    raw_docs = _load_file_as_documents(file_path, data_dir=base_dir)
+
+    return _chunk_documents(raw_docs, cfg, default_source=file_path.name, source_name=source_name)
+
+
+def _chunk_documents(
+    raw_docs: List[Document],
+    cfg: ChunkingConfig,
+    *,
+    default_source: str,
+    source_name: Optional[str],
+) -> Tuple[List[Document], List[str]]:
+    docs: List[Document] = []
+    ids: List[str] = []
+
+    for raw in raw_docs:
+        text = raw.page_content or ""
+        if not text.strip():
+            continue
+        source = source_name or str((raw.metadata or {}).get("source", default_source))
+        page = (raw.metadata or {}).get("page")
+        chunks = chunk_text(text, chunk_size=cfg.chunk_size, chunk_overlap=cfg.chunk_overlap)
+        for i, chunk in enumerate(chunks):
+            source_key = f"{source}#p{page}" if page is not None else source
+            doc_id = make_doc_id(source_key, i, chunk)
+            docs.append(
+                Document(
+                    page_content=chunk,
+                    metadata={
+                        "doc_id": doc_id,
+                        "source": source,
+                        **({"page": page} if page is not None else {}),
+                        "chunk_id": i,
+                    },
+                )
+            )
+            ids.append(doc_id)
+
     return docs, ids
 
