@@ -15,3 +15,4 @@ chroma_db/
 
 # Local config
 rag.config.json
+rag_fast/target/
